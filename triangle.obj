@@ -1,0 +1,37 @@
+# colored_simplified_plane.obj
+# A simplified flying wing shape with color
+
+mtllib plane_materials.mtl
+
+# Vertices
+v -1.0 0.0 0.0
+v 1.0 0.0 0.0
+v 0.0 1.0 0.0
+v -0.5 0.25 0.1
+v 0.5 0.25 0.1
+v 0.0 0.75 0.1
+v -0.5 0.25 -0.1
+v 0.5 0.25 -0.1
+v 0.0 0.75 -0.1
+
+# Top face
+usemtl Red
+f 1 4 6
+f 6 5 2
+f 4 5 6
+
+# Bottom face
+usemtl Blue
+f 1 9 7
+f 9 2 8
+f 7 8 9
+
+# Side faces
+usemtl White
+f 1 3 6 4
+f 2 5 6 3
+f 1 7 9 3
+f 2 3 9 8
+f 1 4 7
+f 2 8 5
+f 4 5 8 7
