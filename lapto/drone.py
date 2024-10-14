@@ -6,7 +6,7 @@ class Drone:
         self.drone_id = drone_id
         self.is_leader = is_leader
         self.speed = 0.1  # Forward speed
-        self.turn_rate = 0.05  # Radians per frame
+        self.turn_rate = 0.01  # Radians per frame
         self.climb_rate = 0.05  # Vertical speed
         self.position = np.array(p.getBasePositionAndOrientation(drone_id)[0])
         self.orientation = [0, 0, 0, 1]  # Quaternion

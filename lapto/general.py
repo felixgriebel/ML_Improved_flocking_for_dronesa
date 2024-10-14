@@ -46,7 +46,7 @@ def main():
         cam_pitch = -30
 
         # Adjust camera yaw to be behind the leader drone
-        cam_yaw = np.degrees(leader_drone.yaw) + 180
+        cam_yaw = np.degrees(leader_drone.yaw) - 90
 
         p.resetDebugVisualizerCamera(cameraDistance=cam_distance,
                                      cameraYaw=cam_yaw,
