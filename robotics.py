@@ -1,14 +1,10 @@
 import pybullet as p
-import os
-import math
 import numpy as np
+import math
 
 class Drone:
     def __init__(self, client, start_position, is_leader=False):
         self.client = client
-        
-        # current_dir = os.path.dirname(os.path.abspath(__file__))
-        # obj_path = os.path.join(current_dir, "triangle.obj")
         
         self.drone_visual_shape = p.createVisualShape(
             shapeType=p.GEOM_MESH,
@@ -23,45 +19,43 @@ class Drone:
             meshScale=[1, 1, 1]
         )
         
+        # Corrected initial orientation: rotate 90 degrees around the z-axis
+        initial_orientation = p.getQuaternionFromEuler([0, 0, 1])
+        
         self.drone_id = p.createMultiBody(
             baseMass=1,
             baseVisualShapeIndex=self.drone_visual_shape,
             baseCollisionShapeIndex=self.drone_collision_shape,
-            basePosition=start_position,#[0, 0, 0],
-            baseOrientation=p.getQuaternionFromEuler([0, 0, 1])  # No rotation needed now
+            basePosition=start_position,
+            baseOrientation=initial_orientation
         )
 
         self.is_leader = is_leader
         self.speed = 0.1  # Forward speed
         self.turn_rate = 0.01  # Radians per frame
-        self.climb_rate = 0.05  # Vertical speed
-        self.position = start_position
-        self.orientation = [0, 0, 0, 1]  # Quaternion
-        self.yaw = 0.0  # Yaw angle in radians
+        self.pitch_rate = 0.01  # Radians per frame
+        self.position = np.array(start_position)
+        self.yaw = 0  # Initial yaw (facing positive x-axis)
+        self.pitch = 0  # Initial pitch
         self.velocity = np.zeros(3)
-        self.max_speed = 0.4
+        self.max_speed = 1
         self.perception_radius = 5.0
-
-
-
 
     def update(self, drones):
         if self.is_leader:
             self.handle_input()
-            # Move forward in the direction of current yaw
+            
+            # Calculate direction based on yaw and pitch
             direction = np.array([
-                np.cos(self.yaw),
-                np.sin(self.yaw),
-                0.0
+                -math.cos(self.pitch) * math.sin(self.yaw),
+                math.cos(self.pitch) * math.cos(self.yaw),
+                math.sin(self.pitch)
             ])
-            # Update horizontal velocity components
-            self.velocity[0] = self.speed * direction[0]
-            self.velocity[1] = self.speed * direction[1]
-            # Vertical velocity is handled in handle_input()
+            
+            # Update velocity
+            self.velocity = self.speed * direction
         else:
-            #self.flocking(drones)
-
-            # Followers adjust altitude to match leader
+            # Follower behavior (adjust as needed)
             leader_altitude = drones[0].position[2]
             altitude_difference = leader_altitude - self.position[2]
             self.velocity[2] = np.clip(altitude_difference, -self.max_speed, self.max_speed)
@@ -70,8 +64,8 @@ class Drone:
         self.position += self.velocity
 
         # Update orientation
-        self.orientation = p.getQuaternionFromEuler([0, 0, self.yaw])
-        p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), self.orientation)
+        orientation = p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
+        p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), orientation)
 
         # Collision detection
         self.detect_collision_with_floor()
@@ -79,25 +73,36 @@ class Drone:
 
     def handle_input(self):
         keys = p.getKeyboardEvents()
-        # Reset vertical velocity each frame
-        self.velocity[2] = 0.0
 
-        # Rotation control
+        # Yaw control
         if ord('a') in keys and keys[ord('a')] & p.KEY_IS_DOWN:
             self.yaw += self.turn_rate
         if ord('d') in keys and keys[ord('d')] & p.KEY_IS_DOWN:
             self.yaw -= self.turn_rate
 
-        # Vertical movement
+        # Pitch control
+        if ord('s') in keys and keys[ord('s')] & p.KEY_IS_DOWN:
+            self.pitch = min(self.pitch + self.pitch_rate, math.pi/2)
         if ord('w') in keys and keys[ord('w')] & p.KEY_IS_DOWN:
-            self.velocity[2] = self.climb_rate
-        elif ord('s') in keys and keys[ord('s')] & p.KEY_IS_DOWN:
-            self.velocity[2] = -self.climb_rate
+            self.pitch = max(self.pitch - self.pitch_rate, -math.pi/2)
 
+        # Altitude control
+        if ord('r') in keys and keys[ord('r')] & p.KEY_IS_DOWN:
+            #self.position[2] += self.speed
+            self.speed +=0.01
+            if self.speed>self.max_speed:
+                self.speed = self.max_speed
+            if self.speed<0.1:
+                self.speed = 0.1
+        if ord('f') in keys and keys[ord('f')] & p.KEY_IS_DOWN:
+            #self.position[2] -= self.speed
+            self.speed -=0.001
+            if self.speed>self.max_speed:
+                self.speed = self.max_speed
+            # if self.speed<0.01:
+            #     self.speed = 0.1
 
-
-
-
+    # Other methods remain unchanged
     def detect_collision_with_floor(self):
         if self.position[2] < 0.1:
             self.position[2] = 0.1
@@ -113,32 +118,12 @@ class Drone:
                 self.velocity *= -1
                 other.velocity *= -1
 
-    def detect_distance(self, objects):
-        distances = []
-        for obj_id in objects:
-            obj_pos = np.array(p.getBasePositionAndOrientation(obj_id)[0])
-            distance = np.linalg.norm(self.position - obj_pos)
-            distances.append(distance)
-        return distances
-
-    def limit_speed(self):
-        speed = np.linalg.norm(self.velocity)
-        if speed > self.max_speed:
-            self.velocity = self.velocity / speed * self.max_speed
-
-    def set_magnitude(self, vector, magnitude):
-        current_magnitude = np.linalg.norm(vector)
-        if current_magnitude > 0:
-            return vector / current_magnitude * magnitude
-        else:
-            return vector
-
-
-
-
-
     def change_color(self, rgba_color):
-            p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
+        p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
+
+
+
+
 
     # def detect_nearby_objects(self, radius):
     #     drone_pos, _ = p.getBasePositionAndOrientation(self.drone_id)
