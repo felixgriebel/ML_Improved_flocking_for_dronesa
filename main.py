@@ -16,7 +16,7 @@ class Environment:
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 20
+        self.num_drones = 50
         self.drones = []
         for i in range(self.num_drones):
             start_pos = [np.random.uniform(-5, 5), np.random.uniform(-5, 5), np.random.uniform(1, 3)]
@@ -42,9 +42,12 @@ class Environment:
         while True:
             p.stepSimulation()
             
+            leader_drone = self.drones[0]
+
+            
             
             for drone in self.drones:
-                drone.update(self.drones)
+                drone.update(self.drones, leader_drone)
             
             # # Detect nearby objects
             # nearby_objects = self.drone.detect_nearby_objects(radius=detection_radius)
@@ -65,14 +68,14 @@ class Environment:
             # yaw_angle = math.cos(t) * 0.05  # Small yawing motion
             # self.drone.yaw(yaw_angle)
 
-            leader_drone = self.drones[0]
             cam_target = leader_drone.position#.tolist()
-            cam_distance = 5
-            cam_pitch = -30
+            cam_distance = 15
+            # cam_pitch = -30
 
             # Adjust camera yaw to be behind the leader drone
             cam_yaw = np.degrees(leader_drone.yaw) #- 90
-
+            cam_pitch = np.degrees(leader_drone.pitch)
+            
             p.resetDebugVisualizerCamera(cameraDistance=cam_distance,
                                         cameraYaw=cam_yaw,
                                         cameraPitch=cam_pitch,

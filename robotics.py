@@ -19,8 +19,8 @@ class Drone:
             meshScale=[1, 1, 1]
         )
         
-        # Corrected initial orientation: rotate 90 degrees around the z-axis
-        initial_orientation = p.getQuaternionFromEuler([0, 0, 1])
+        # Initial orientation
+        initial_orientation = p.getQuaternionFromEuler([0, 0, 0])
         
         self.drone_id = p.createMultiBody(
             baseMass=1,
@@ -32,96 +32,200 @@ class Drone:
 
         self.is_leader = is_leader
         self.speed = 0.1  # Forward speed
-        self.turn_rate = 0.01  # Radians per frame
-        self.pitch_rate = 0.01  # Radians per frame
+        self.turn_rate = 0.05  # Radians per frame
         self.position = np.array(start_position)
-        self.yaw = 0  # Initial yaw (facing positive x-axis)
+        self.yaw = 0  # Initial yaw
         self.pitch = 0  # Initial pitch
+        self.direction = np.array([1, 0, 0])  # Initial direction (normalized)
         self.velocity = np.zeros(3)
         self.max_speed = 1
-        self.perception_radius = 5.0
+        self.perception_radius = 5.0    
 
-    def update(self, drones):
+    def update(self, drones, leader_drone):
         if self.is_leader:
             self.handle_input()
-            
-            # Calculate direction based on yaw and pitch
-            direction = np.array([
-                -math.cos(self.pitch) * math.sin(self.yaw),
-                math.cos(self.pitch) * math.cos(self.yaw),
-                math.sin(self.pitch)
-            ])
-            
-            # Update velocity
-            self.velocity = self.speed * direction
+            self.velocity = self.speed * self.direction
+
         else:
-            # Follower behavior (adjust as needed)
-            leader_altitude = drones[0].position[2]
-            altitude_difference = leader_altitude - self.position[2]
-            self.velocity[2] = np.clip(altitude_difference, -self.max_speed, self.max_speed)
+            pass
+            tuptuper = self.get_closest_drones(drones)
+            velo = np.array([0.0,0.0,0.0])
+            velo += self.get_alignment(tuptuper,drones=drones)
+            velo += self.get_cohesion(tuptuper)
+            velo += self.get_seperation(tuptuper)*2.0
+            velo += self.get_leader(leader=leader_drone)*2.0
+            
+            self.direction= velo/np.linalg.norm(velo)
+            self.velocity = self.speed * self.direction
+
+            v_x, v_z, v_y = self.direction
+            self.yaw = math.atan2(v_x, v_z)  # Yaw based on XZ plane
+            self.pitch = math.atan2(v_y, math.sqrt(v_x**2 + v_z**2))  # Pitch based on vertical direction
+
+                
+            
+            # # Follower behavior (adjust as needed)
+            
+            # leader_altitude = drones[0].position[2]
+            # altitude_difference = leader_altitude - self.position[2]
+            # self.direction[2] = np.clip(altitude_difference, -1, 1)
+            # self.direction = self.direction / np.linalg.norm(self.direction)
+
+        # Update velocity based on direction and speed
 
         # Update position
         self.position += self.velocity
+
+        
+
 
         # Update orientation
         orientation = p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
         p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), orientation)
 
-        # Collision detection
-        self.detect_collision_with_floor()
-        self.detect_collision_with_drones(drones)
+        # # Collision detection
+        # self.detect_collision_with_floor()
+        # self.detect_collision_with_drones(drones)
 
     def handle_input(self):
         keys = p.getKeyboardEvents()
+        
+        LEFT_ARROW = 65295
+        RIGHT_ARROW = 65296
+        UP_ARROW = 65297
+        DOWN_ARROW = 65298
+        
+        
+        if LEFT_ARROW in keys and keys[LEFT_ARROW] & p.KEY_IS_DOWN:
+            self.yaw = (self.yaw + self.turn_rate) % (2 * math.pi)
+        if RIGHT_ARROW in keys and keys[RIGHT_ARROW] & p.KEY_IS_DOWN:
+            self.yaw = (self.yaw - self.turn_rate) % (2 * math.pi)
 
-        # Yaw control
-        if ord('a') in keys and keys[ord('a')] & p.KEY_IS_DOWN:
-            self.yaw += self.turn_rate
-        if ord('d') in keys and keys[ord('d')] & p.KEY_IS_DOWN:
-            self.yaw -= self.turn_rate
+        # Pitch control (full 360 degrees)
+        if UP_ARROW  in keys and keys[UP_ARROW] & p.KEY_IS_DOWN:
+            self.pitch = (self.pitch + self.turn_rate) % (2 * math.pi)
+        if DOWN_ARROW in keys and keys[DOWN_ARROW] & p.KEY_IS_DOWN:
+            self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
 
-        # Pitch control
-        if ord('s') in keys and keys[ord('s')] & p.KEY_IS_DOWN:
-            self.pitch = min(self.pitch + self.pitch_rate, math.pi/2)
-        if ord('w') in keys and keys[ord('w')] & p.KEY_IS_DOWN:
-            self.pitch = max(self.pitch - self.pitch_rate, -math.pi/2)
 
-        # Altitude control
+        # Yaw control (full 360 degrees)
+        # if ord('a') in keys and keys[ord('a')] & p.KEY_IS_DOWN:
+        #     self.yaw = (self.yaw + self.turn_rate) % (2 * math.pi)
+        # if ord('d') in keys and keys[ord('d')] & p.KEY_IS_DOWN:
+        #     self.yaw = (self.yaw - self.turn_rate) % (2 * math.pi)
+
+        # # Pitch control (full 360 degrees)
+        # if ord('s') in keys and keys[ord('s')] & p.KEY_IS_DOWN:
+        #     self.pitch = (self.pitch + self.turn_rate) % (2 * math.pi)
+        # if ord('w') in keys and keys[ord('w')] & p.KEY_IS_DOWN:
+        #     self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
+
+        # Update direction based on yaw and pitch
+        self.direction = np.array([
+            -math.cos(self.pitch) * math.sin(self.yaw),
+            math.cos(self.pitch) * math.cos(self.yaw),
+            math.sin(self.pitch)
+        ])
+
+        # Speed control
         if ord('r') in keys and keys[ord('r')] & p.KEY_IS_DOWN:
-            #self.position[2] += self.speed
-            self.speed +=0.01
-            if self.speed>self.max_speed:
-                self.speed = self.max_speed
-            if self.speed<0.1:
-                self.speed = 0.1
+            self.speed = min(self.speed + 0.01, self.max_speed)
         if ord('f') in keys and keys[ord('f')] & p.KEY_IS_DOWN:
-            #self.position[2] -= self.speed
-            self.speed -=0.001
-            if self.speed>self.max_speed:
-                self.speed = self.max_speed
-            # if self.speed<0.01:
-            #     self.speed = 0.1
+            self.speed = max(self.speed - 0.01, 0.1)
 
-    # Other methods remain unchanged
-    def detect_collision_with_floor(self):
-        if self.position[2] < 0.1:
-            self.position[2] = 0.1
-            self.velocity[2] = 0
+    # def detect_collision_with_floor(self):
+    #     if self.position[2] < 0.1:
+    #         self.position[2] = 0.1
+    #         self.velocity[2] = 0
+    #         self.direction[2] = 0
+    #         self.direction = self.direction / np.linalg.norm(self.direction)
 
-    def detect_collision_with_drones(self, drones):
-        for other in drones:
-            if other == self:
-                continue
-            distance = np.linalg.norm(other.position - self.position)
-            if distance < 0.2:
-                # Simple collision response
-                self.velocity *= -1
-                other.velocity *= -1
+    # def detect_collision_with_drones(self, drones):
+    #     for other in drones:
+    #         if other == self:
+    #             continue
+    #         distance = np.linalg.norm(other.position - self.position)
+    #         if distance < 0.2:
+    #             # Simple collision response
+    #             self.velocity *= -1
+    #             other.velocity *= -1
+    #             self.direction *= -1
+    #             other.direction *= -1
 
     def change_color(self, rgba_color):
         p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
 
 
+    def get_closest_drones(self, all_drones, num_closest=10):
+        """
+        Get the positions of the num_closest drones to this drone.
+        
+        :param all_drones: List of all Drone objects in the simulation
+        :param num_closest: Number of closest drones to return (default 5)
+        :return: List of tuples (drone_id, position, distance) for the closest drones
+        """
+        distances = []
+        for drone in all_drones:
+            if drone != self:  # Don't include self in the list
+                distance = np.linalg.norm(drone.position - self.position)
+                distances.append((drone.drone_id, drone.position, distance,drone.velocity))
+        
+        # Sort by distance and return the num_closest drones
+        distances.sort(key=lambda x: x[2])
+        return distances[:num_closest]
+    
+    
+    
+    # def set_direction(self, new_direction):
+    #     # Ensure the new direction is normalized
+    #     self.direction = new_direction / np.linalg.norm(new_direction)
+
+    # def get_orientation(self):
+    #     return p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
+
+    # def set_orientation(self, orientation):
+    #     euler = p.getEulerFromQuaternion(orientation)
+    #     self.pitch = euler[0]
+    #     self.yaw = euler[2]
+    #     self.update_direction_from_orientation()
+
+    # def update_direction_from_orientation(self):
+    #     print(self.pitch)
+    #     print(self.yaw)
+    #     print()
+    #     self.direction = np.array([
+    #         (math.cos(self.pitch) * math.cos(self.yaw)),
+    #         math.sin(self.pitch),
+    #         (math.cos(self.pitch) * math.sin(self.yaw))
+    #     ])
+        
+    def get_seperation(self, tuplelist, neighbour_num = 5):
+        vector_sum=np.array([0.0,0.0,0.0])
+        maxer =  np.array(([t[2] for t in tuplelist[:neighbour_num]])).max()
+        for i in tuplelist[:neighbour_num]:
+            vector_sum+= (i[1]*(maxer-i[2]))
+        return vector_sum/np.linalg.norm(vector_sum)
+            
+    
+    def get_alignment(self, tuplelist, drones, neighbour_num = 5):
+        dir_sum = np.array([0.0,0.0,0.0])
+        matchingfactor = 1.0
+        for i in tuplelist[:neighbour_num]:
+            dir_sum+= i[3] * matchingfactor
+        if np.linalg.norm(dir_sum) == 0:
+            return np.array([0.0,0.0,0.0])
+        return dir_sum/np.linalg.norm(dir_sum)
+    
+    def get_cohesion(self, tuplelist):
+        vector_sum=np.array([0.0,0.0,0.0])
+        for i in tuplelist:
+            vector_sum+= i[1]
+        return vector_sum/np.linalg.norm(vector_sum)
+    
+    
+    def get_leader(self,leader):
+        vec = leader.position-self.position
+        return  vec/np.linalg.norm(vec)
 
 
 
