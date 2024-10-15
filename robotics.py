@@ -52,8 +52,8 @@ class Drone:
             velo = np.array([0.0,0.0,0.0])
             velo += self.get_alignment(tuptuper,drones=drones)
             velo += self.get_cohesion(tuptuper)
-            velo += self.get_seperation(tuptuper)*2.0
-            velo += self.get_leader(leader=leader_drone)*2.0
+            velo += self.get_seperation(tuptuper)*5.0
+            velo += self.get_leader(leader=leader_drone)
             
             self.direction= velo/np.linalg.norm(velo)
             self.velocity = self.speed * self.direction
@@ -156,7 +156,7 @@ class Drone:
         p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
 
 
-    def get_closest_drones(self, all_drones, num_closest=10):
+    def get_closest_drones(self, all_drones, num_closest=20):
         """
         Get the positions of the num_closest drones to this drone.
         
@@ -199,7 +199,7 @@ class Drone:
     #         (math.cos(self.pitch) * math.sin(self.yaw))
     #     ])
         
-    def get_seperation(self, tuplelist, neighbour_num = 5):
+    def get_seperation(self, tuplelist, neighbour_num = 10):
         vector_sum=np.array([0.0,0.0,0.0])
         maxer =  np.array(([t[2] for t in tuplelist[:neighbour_num]])).max()
         for i in tuplelist[:neighbour_num]:
@@ -207,7 +207,7 @@ class Drone:
         return vector_sum/np.linalg.norm(vector_sum)
             
     
-    def get_alignment(self, tuplelist, drones, neighbour_num = 5):
+    def get_alignment(self, tuplelist, drones, neighbour_num = 10):
         dir_sum = np.array([0.0,0.0,0.0])
         matchingfactor = 1.0
         for i in tuplelist[:neighbour_num]:
@@ -224,8 +224,9 @@ class Drone:
     
     
     def get_leader(self,leader):
+        dist = np.linalg.norm(leader.position - self.position)
         vec = leader.position-self.position
-        return  vec/np.linalg.norm(vec)
+        return (vec/np.linalg.norm(vec)) * dist
 
 
 
