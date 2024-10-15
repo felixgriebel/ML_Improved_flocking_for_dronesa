@@ -44,11 +44,24 @@ class Environment:
             
             leader_drone = self.drones[0]
 
+            copy_drones = self.drones[:]
+            for drone in copy_drones:
+                drone.update(copy_drones, leader_drone)
+                if drone.is_collided:
+                    self.drones.remove(drone)
+            
+            # for drone in self.drones:
+            #     drone.update(self.drones, leader_drone)
+                
             
             
-            for drone in self.drones:
-                drone.update(self.drones, leader_drone)
-            
+            if leader_drone.is_collided:
+                for i in self.drones:
+                    if not i.is_collided:
+                        leader_drone = i
+                        i.is_leader = True
+                        i.change_color(rgba_color=[1, 0, 0, 1])
+                        break
             # # Detect nearby objects
             # nearby_objects = self.drone.detect_nearby_objects(radius=detection_radius)
             # if nearby_objects:
