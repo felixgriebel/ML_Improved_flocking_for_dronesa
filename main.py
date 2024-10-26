@@ -5,6 +5,13 @@ import time
 import math
 from robotics import Drone
 
+#TODO: ändern zu nur im gewissen bereich sind die nahen boids
+#TODO: andern zu leader immer enthalten
+#TODO: https://people.ece.cornell.edu/land/courses/ece4760/labs/s2021/Boids/Boids.html
+
+
+
+
 class Environment:
     def __init__(self):
         self.client = p.connect(p.GUI)
@@ -16,10 +23,10 @@ class Environment:
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 50
+        self.num_drones = 100
         self.drones = []
         for i in range(self.num_drones):
-            start_pos = [np.random.uniform(-5, 5), np.random.uniform(-5, 5), np.random.uniform(1, 3)]
+            start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(1, 5)]
             # visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.1, rgbaColor=[0, 0, 1, 1])
             # collision_shape_id = p.createCollisionShape(shapeType=p.GEOM_SPHERE, radius=0.1)
             
@@ -48,6 +55,7 @@ class Environment:
             for drone in copy_drones:
                 drone.update(copy_drones, leader_drone)
                 if drone.is_collided:
+                    print("remove")
                     self.drones.remove(drone)
             
             # for drone in self.drones:
@@ -82,7 +90,7 @@ class Environment:
             # self.drone.yaw(yaw_angle)
 
             cam_target = leader_drone.position#.tolist()
-            cam_distance = 15
+            cam_distance = 5
             # cam_pitch = -30
 
             # Adjust camera yaw to be behind the leader drone

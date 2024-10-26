@@ -33,13 +33,13 @@ class Drone:
         self.is_leader = is_leader
         self.is_collided = False
         self.speed = 0.1  # Forward speed
-        self.turn_rate = 0.05  # Radians per frame
+        self.turn_rate = 0.03  # Radians per frame
         self.position = np.array(start_position)
         self.yaw = 0  # Initial yaw
         self.pitch = 0  # Initial pitch
         self.direction = np.array([1, 0, 0])  # Initial direction (normalized)
         self.velocity = np.zeros(3)
-        self.max_speed = 1
+        self.max_speed = 0.7
         self.perception_radius = 5.0    
 
     def update(self, drones, leader_drone):
@@ -56,11 +56,11 @@ class Drone:
             velo += self.get_alignment(tuptuper,drones=drones)
             velo += self.get_cohesion(tuptuper)
             velo += self.get_seperation(tuptuper)
-            velo += self.get_leader(leader=leader_drone)
+            #velo += self.get_leader(leader=leader_drone)
             
             self.direction= velo/np.linalg.norm(velo)
             
-            self.speed = (self.speed+self.avg_speed(tuptuper))/2
+            #self.speed = (self.speed+self.avg_speed(tuptuper,leader=leader_drone))/2
             
             
             self.velocity = self.speed * self.direction
@@ -218,11 +218,11 @@ class Drone:
         vec = leader.position-self.position
         return (vec/np.linalg.norm(vec)) * math.sqrt(math.sqrt(dist))
 
-    def avg_speed(self, tuplelist, neighbour_num = 10):
-        summe = 0.0
+    def avg_speed(self, tuplelist,leader,  neighbour_num = 10):
+        summe = leader.speed
         for i in tuplelist[:neighbour_num]:
             summe+= i[4]
-        return summe/neighbour_num
+        return summe/(neighbour_num+1)
 
 
     # def detect_nearby_objects(self, radius):
