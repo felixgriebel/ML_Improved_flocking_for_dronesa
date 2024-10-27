@@ -23,10 +23,10 @@ class Environment:
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 100
+        self.num_drones = 30
         self.drones = []
         for i in range(self.num_drones):
-            start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(1, 5)]
+            start_pos = [np.random.uniform(-7, 7), np.random.uniform(-7, 7), np.random.uniform(1, 5)]
             # visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.1, rgbaColor=[0, 0, 1, 1])
             # collision_shape_id = p.createCollisionShape(shapeType=p.GEOM_SPHERE, radius=0.1)
             
@@ -52,12 +52,19 @@ class Environment:
             leader_drone = self.drones[0]
 
             copy_drones = self.drones[:]
-            for drone in copy_drones:
-                drone.update(copy_drones, leader_drone)
-                if drone.is_collided:
-                    print("remove")
-                    self.drones.remove(drone)
-            
+            if t% 0.1 == 0:
+                for drone in copy_drones:
+                    drone.update(copy_drones, leader_drone)
+                    if drone.is_collided:
+                        print("remove")
+                        self.drones.remove(drone)
+            else:
+                for drone in copy_drones:
+                    drone.update(copy_drones, leader_drone,skip=True)
+                    if drone.is_collided:
+                        print("remove")
+                        self.drones.remove(drone)
+                
             # for drone in self.drones:
             #     drone.update(self.drones, leader_drone)
                 
@@ -90,7 +97,7 @@ class Environment:
             # self.drone.yaw(yaw_angle)
 
             cam_target = leader_drone.position#.tolist()
-            cam_distance = 5
+            cam_distance = 8
             # cam_pitch = -30
 
             # Adjust camera yaw to be behind the leader drone

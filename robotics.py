@@ -23,7 +23,7 @@ class Drone:
         initial_orientation = p.getQuaternionFromEuler([0, 0, 0])
         
         self.drone_id = p.createMultiBody(
-            baseMass=100,
+            baseMass=10,
             baseVisualShapeIndex=self.drone_visual_shape,
             baseCollisionShapeIndex=self.drone_collision_shape,
             basePosition=start_position,
@@ -33,16 +33,24 @@ class Drone:
         self.is_leader = is_leader
         self.is_collided = False
         self.speed = 0.1  # Forward speed
-        self.turn_rate = 0.03  # Radians per frame
+        self.turn_rate = 0.01  # Radians per frame
         self.position = np.array(start_position)
         self.yaw = 0  # Initial yaw
         self.pitch = 0  # Initial pitch
-        self.direction = np.array([1, 0, 0])  # Initial direction (normalized)
-        self.velocity = np.zeros(3)
+        self.direction = np.array([1.0, 0.0, 0.0])  # Initial direction (normalized)
+        self.velocity = np.array([1.0, 0.0, 0.0])
         self.max_speed = 0.7
-        self.perception_radius = 5.0    
+        self.perception_radius = 5.0
 
-    def update(self, drones, leader_drone):
+        self.seperation_threshold = 3.0
+        self.seperationfactor = 0.05
+        self.cohesion_threshold = 10.0
+        self.centeringfactor = 0.0005
+        self.alignment_threshold = 10.0
+        self.matchingfactor = 0.05
+
+
+    def update(self, drones, leader_drone, skip = False):
         if self.is_collided:
             return
         if self.is_leader:
@@ -50,15 +58,15 @@ class Drone:
             self.velocity = self.speed * self.direction
 
         else:
-            pass
-            tuptuper = self.get_closest_drones(drones)
-            velo = np.array([0.0,0.0,0.0])
-            velo += self.get_alignment(tuptuper,drones=drones)
-            velo += self.get_cohesion(tuptuper)
-            velo += self.get_seperation(tuptuper)
-            #velo += self.get_leader(leader=leader_drone)
-            
-            self.direction= velo/np.linalg.norm(velo)
+            #pass
+            if not skip:
+                tuptuper = self.get_closest_drones(drones)
+                velo = np.array([0.0,0.0,0.0])
+                velo += self.get_alignment(tuptuper,drones=drones)
+                velo += self.get_cohesion(tuptuper)
+                velo += self.get_seperation(tuptuper)
+                velo += self.get_leader(leader=leader_drone)*0.05
+                self.direction += velo#/np.linalg.norm(velo)
             
             #self.speed = (self.speed+self.avg_speed(tuptuper,leader=leader_drone))/2
             
@@ -147,76 +155,71 @@ class Drone:
 
 
     def get_closest_drones(self, all_drones, num_closest=20):
-        """
-        Get the positions of the num_closest drones to this drone.
-        
-        :param all_drones: List of all Drone objects in the simulation
-        :param num_closest: Number of closest drones to return (default 5)
-        :return: List of tuples (drone_id, position, distance) for the closest drones
-        """
+        max_thresh = max(self.alignment_threshold,self.cohesion_threshold,self.seperation_threshold)
         distances = []
         for drone in all_drones:
             if drone != self:  # Don't include self in the list
                 distance = np.linalg.norm(drone.position - self.position)
-                distances.append((drone.drone_id, drone.position, distance,drone.velocity, drone.speed))
+                if distance<max_thresh:
+                    distances.append((drone.drone_id, drone.position, distance, drone.velocity, drone.speed))
         
         # Sort by distance and return the num_closest drones
         distances.sort(key=lambda x: x[2])
-        return distances[:num_closest]
+        return distances
     
     
-    
-    # def set_direction(self, new_direction):
-    #     # Ensure the new direction is normalized
-    #     self.direction = new_direction / np.linalg.norm(new_direction)
 
-    # def get_orientation(self):
-    #     return p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
-
-    # def set_orientation(self, orientation):
-    #     euler = p.getEulerFromQuaternion(orientation)
-    #     self.pitch = euler[0]
-    #     self.yaw = euler[2]
-    #     self.update_direction_from_orientation()
-
-    # def update_direction_from_orientation(self):
-    #     print(self.pitch)
-    #     print(self.yaw)
-    #     print()
-    #     self.direction = np.array([
-    #         (math.cos(self.pitch) * math.cos(self.yaw)),
-    #         math.sin(self.pitch),
-    #         (math.cos(self.pitch) * math.sin(self.yaw))
-    #     ])
-        
     def get_seperation(self, tuplelist, neighbour_num = 10):
         vector_sum=np.array([0.0,0.0,0.0])
-        maxer =  np.array(([t[2] for t in tuplelist[:neighbour_num]])).max()
-        for i in tuplelist[:neighbour_num]:
-            vector_sum+= (i[1]*(maxer-i[2]))
-        return vector_sum/np.linalg.norm(vector_sum)
-            
+        
+        for i in tuplelist:
+            if i[2]>self.seperation_threshold:
+                break
+            vector_sum+= (self.position - i[1])
+        
+        vector_sum = vector_sum*self.seperationfactor
+        return vector_sum
     
     def get_alignment(self, tuplelist, drones, neighbour_num = 10):
         dir_sum = np.array([0.0,0.0,0.0])
-        matchingfactor = 1.0
-        for i in tuplelist[:neighbour_num]:
-            dir_sum+= i[3] * matchingfactor
-        if np.linalg.norm(dir_sum) == 0:
+
+        counter = 0
+        for i in tuplelist:
+            if i[2]>self.alignment_threshold:
+                break
+            dir_sum+= i[3]
+            counter +=1
+
+        if counter == 0:
             return np.array([0.0,0.0,0.0])
-        return dir_sum/np.linalg.norm(dir_sum)
+        dir_sum = dir_sum/counter
+
+        dir_sum = (dir_sum-self.velocity)*self.matchingfactor
+        return dir_sum
     
     def get_cohesion(self, tuplelist):
         vector_sum=np.array([0.0,0.0,0.0])
+
+        counter = 0
+
         for i in tuplelist:
+            if i[2]>self.cohesion_threshold:
+                break
             vector_sum+= i[1]
-        return vector_sum/np.linalg.norm(vector_sum)
+            counter +=1
+        
+        if counter == 0:
+            return np.array([0.0,0.0,0.0])
+        vector_sum = vector_sum/counter
+        vector_sum = (vector_sum-self.position)*self.centeringfactor
+
+        return vector_sum#/np.linalg.norm(vector_sum)
     
     
     def get_leader(self,leader):
         dist = np.linalg.norm(leader.position - self.position)
         vec = leader.position-self.position
-        return (vec/np.linalg.norm(vec)) * math.sqrt(math.sqrt(dist))
+        return (vec)#/np.linalg.norm(vec))# * math.sqrt(math.sqrt(dist))
 
     def avg_speed(self, tuplelist,leader,  neighbour_num = 10):
         summe = leader.speed
