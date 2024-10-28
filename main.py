@@ -23,10 +23,10 @@ class Environment:
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 30
+        self.num_drones = 100
         self.drones = []
         for i in range(self.num_drones):
-            start_pos = [np.random.uniform(-7, 7), np.random.uniform(-7, 7), np.random.uniform(1, 5)]
+            start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(10, 20)]
             # visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.1, rgbaColor=[0, 0, 1, 1])
             # collision_shape_id = p.createCollisionShape(shapeType=p.GEOM_SPHERE, radius=0.1)
             
@@ -77,6 +77,19 @@ class Environment:
                         i.is_leader = True
                         i.make_leader_color()
                         break
+
+            border = 50
+            for i in self.drones:
+                pos = i.position
+                if pos[0]>border:
+                    pos[0]-=(2*border)
+                elif pos[0]< -border:
+                    pos[0]+=(2*border)
+                if pos[1]>border:
+                    pos[1]-=(2*border)
+                elif pos[1]< -border:
+                    pos[1]+=(2*border)
+                i.position = pos
             # # Detect nearby objects
             # nearby_objects = self.drone.detect_nearby_objects(radius=detection_radius)
             # if nearby_objects:

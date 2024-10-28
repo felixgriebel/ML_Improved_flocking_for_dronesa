@@ -38,16 +38,16 @@ class Drone:
         self.yaw = 0  # Initial yaw
         self.pitch = 0  # Initial pitch
         self.direction = np.array([1.0, 0.0, 0.0])  # Initial direction (normalized)
-        self.velocity = np.array([1.0, 0.0, 0.0])
+        self.velocity = np.array([1.0, 1.0, 0.0])
         self.max_speed = 0.7
         self.perception_radius = 5.0
 
         self.seperation_threshold = 3.0
-        self.seperationfactor = 0.05
-        self.cohesion_threshold = 10.0
-        self.centeringfactor = 0.0005
+        self.seperationfactor = 0.0001
+        self.cohesion_threshold = 20.0
+        self.centeringfactor = 0.01
         self.alignment_threshold = 10.0
-        self.matchingfactor = 0.05
+        self.matchingfactor = 1.0
 
 
     def update(self, drones, leader_drone, skip = False):
@@ -56,7 +56,7 @@ class Drone:
         if self.is_leader:
             self.handle_input()
             self.velocity = self.speed * self.direction
-
+            
         else:
             #pass
             if not skip:
@@ -65,10 +65,9 @@ class Drone:
                 velo += self.get_alignment(tuptuper,drones=drones)
                 velo += self.get_cohesion(tuptuper)
                 velo += self.get_seperation(tuptuper)
-                #velo += self.get_leader(leader=leader_drone)*0.05
+                velo += self.get_leader(leader=leader_drone)*0.1
                 self.direction += velo#/np.linalg.norm(velo)
-            
-            #self.speed = (self.speed+self.avg_speed(tuptuper,leader=leader_drone))/2
+                self.direction/=np.linalg.norm(self.direction)
             
             
             self.velocity = self.speed * self.direction
@@ -79,9 +78,11 @@ class Drone:
 
         # Update position
         self.position += self.velocity
-
-        # Update orientation
+    
         orientation = p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
+        
+        # Update orientation
+        
         p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), orientation)
 
         # Collision detection
@@ -295,28 +296,3 @@ class Drone:
     #     self.set_position_and_orientation(pos, new_orn)
 
 
-
-    # def visualize_detection_sphere(self, radius, lifetime=0):
-    #     drone_pos = self.get_position()
-    #     p.addUserDebugLine([drone_pos[0] - radius, drone_pos[1], drone_pos[2]], 
-    #                        [drone_pos[0] + radius, drone_pos[1], drone_pos[2]], 
-    #                        [1, 0, 0], lineWidth=2, lifeTime=lifetime)
-    #     p.addUserDebugLine([drone_pos[0], drone_pos[1] - radius, drone_pos[2]], 
-    #                        [drone_pos[0], drone_pos[1] + radius, drone_pos[2]], 
-    #                        [0, 1, 0], lineWidth=2, lifeTime=lifetime)
-    #     p.addUserDebugLine([drone_pos[0], drone_pos[1], drone_pos[2] - radius], 
-    #                        [drone_pos[0], drone_pos[1], drone_pos[2] + radius], 
-    #                        [0, 0, 1], lineWidth=2, lifeTime=lifetime)
-
-    # def get_position(self):
-    #         pos, _ = p.getBasePositionAndOrientation(self.drone_id)
-    #         return pos
-
-    # def set_position(self, position):
-    #     p.resetBasePositionAndOrientation(self.drone_id, position, p.getQuaternionFromEuler([0, 0, 0]))
-
-
-    # def move_forward(self, distance):
-    #     current_pos = self.get_position()
-    #     new_pos = [current_pos[0], current_pos[1] + distance, current_pos[2]]
-    #     self.set_position(new_pos)
