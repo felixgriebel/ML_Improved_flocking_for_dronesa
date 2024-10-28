@@ -65,7 +65,7 @@ class Drone:
                 velo += self.get_alignment(tuptuper,drones=drones)
                 velo += self.get_cohesion(tuptuper)
                 velo += self.get_seperation(tuptuper)
-                velo += self.get_leader(leader=leader_drone)*0.05
+                #velo += self.get_leader(leader=leader_drone)*0.05
                 self.direction += velo#/np.linalg.norm(velo)
             
             #self.speed = (self.speed+self.avg_speed(tuptuper,leader=leader_drone))/2
@@ -152,6 +152,28 @@ class Drone:
 
     def change_color(self, rgba_color):
         p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
+        
+    def make_leader_color(self):
+        self.drone_visual_shape = p.createVisualShape(
+            shapeType=p.GEOM_MESH,
+            fileName="triangle_reversed.obj",
+            rgbaColor=[0.7, 0.3, 0.3, 1],
+            meshScale=[1, 1, 1]
+        )
+        
+        self.drone_collision_shape = p.createCollisionShape(
+            shapeType=p.GEOM_MESH,
+            fileName="triangle_reversed.obj",
+            meshScale=[1, 1, 1]
+        )
+        self.drone_id = p.createMultiBody(
+            baseMass=10,
+            baseVisualShapeIndex=self.drone_visual_shape,
+            baseCollisionShapeIndex=self.drone_collision_shape,
+            basePosition=self.position,
+            baseOrientation=p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
+        )
+        self.change_color(rgba_color=[1, 0, 0, 1])
 
 
     def get_closest_drones(self, all_drones, num_closest=20):

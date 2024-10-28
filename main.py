@@ -34,7 +34,7 @@ class Environment:
             drone = Drone(self.client,start_position=start_pos,is_leader=is_leader)
             if is_leader:
                 # Change leader color to red
-                drone.change_color(rgba_color=[1, 0, 0, 1])
+                drone.make_leader_color()
             else:
                 drone.change_color(rgba_color=[0, 0, 1, 1])
             self.drones.append(drone)
@@ -75,7 +75,7 @@ class Environment:
                     if not i.is_collided:
                         leader_drone = i
                         i.is_leader = True
-                        i.change_color(rgba_color=[1, 0, 0, 1])
+                        i.make_leader_color()
                         break
             # # Detect nearby objects
             # nearby_objects = self.drone.detect_nearby_objects(radius=detection_radius)
