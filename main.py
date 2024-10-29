@@ -4,6 +4,7 @@ import numpy as np
 import time
 import math
 from robotics import Drone
+import datetime 
 
 #TODO: ändern zu nur im gewissen bereich sind die nahen boids
 #TODO: andern zu leader immer enthalten
@@ -23,7 +24,7 @@ class Environment:
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 80
+        self.num_drones = 120
         self.drones = []
         for i in range(self.num_drones):
             start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(5, 10)]
@@ -38,6 +39,75 @@ class Environment:
             else:
                 drone.change_color(rgba_color=[0, 0, 1, 1])
             self.drones.append(drone)
+        self.fixed_objects = []
+        self.add_fixed_objects()
+
+    def add_fixed_objects(self):
+        # Define positions for the floating objects
+        positions = [
+            [5, 5, 8],
+            [-5, -5, 7],
+            [10, -10, 9],
+            [-20, 8, 15],
+            [10, 15, 1],
+            [0, 0, 30],
+            [-8, 15, 10],
+            [25, -15, 20],
+            [-30, 30, 5],
+            [40, -40, 35],
+            [-45, 20, 18],
+            [15, -35, 25],
+            [30, 10, 12],
+            [-50, -30, 8],
+            [20, -25, 16],
+            [10, 40, 3],
+            [-15, 25, 22],
+            [0, -45, 20],
+            [35, -10, 15],
+            [-25, -40, 5],
+        ]
+        
+        sizes = [
+            0.5,
+            1.0,
+            0.5,
+            2.0,
+            4.0,
+            1.5,
+            0.5,
+            3.0,
+            4.5,
+            2.5,
+            1.0,
+            4.0,
+            3.5,
+            2.0,
+            4.5,
+            1.5,
+            0.75,
+            3.25,
+            2.75,
+            4.0
+        ]
+        count=0
+        # Define a visual and collision shape for cubes
+        for pos in positions:
+            if count<10:
+                visual_shape_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[sizes[count], sizes[count], sizes[count]], rgbaColor=[0, 1, 0, 1])
+                collision_shape_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[sizes[count],sizes[count], sizes[count]])
+            else:
+                visual_shape_id = p.createVisualShape(p.GEOM_SPHERE, radius=sizes[count], rgbaColor=[0, 1, 0, 1])
+                collision_shape_id = p.createCollisionShape(p.GEOM_SPHERE, radius=sizes[count])
+
+            count+=1
+            
+            fixed_object_id = p.createMultiBody(
+                baseMass=0,  # Mass of 0 makes it static
+                baseCollisionShapeIndex=collision_shape_id,
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=pos,
+            )
+            self.fixed_objects.append(fixed_object_id)
 
 
 
@@ -87,7 +157,7 @@ class Environment:
                         i.make_leader_color()
                         break
 
-            border = 30
+            border = 50
             for i in self.drones:
                 pos = i.position
                 if pos[0]>border:
