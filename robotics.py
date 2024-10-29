@@ -45,9 +45,11 @@ class Drone:
         self.seperation_threshold = 3.0
         self.seperationfactor = 0.0001
         self.cohesion_threshold = 20.0
-        self.centeringfactor = 0.01
+        self.centeringfactor = 0.03
         self.alignment_threshold = 10.0
-        self.matchingfactor = 1.0
+        self.matchingfactor = 0.8
+        
+        self.stopper = False
 
 
     def update(self, drones, leader_drone, skip = False):
@@ -65,7 +67,7 @@ class Drone:
                 velo += self.get_alignment(tuptuper,drones=drones)
                 velo += self.get_cohesion(tuptuper)
                 velo += self.get_seperation(tuptuper)
-                velo += self.get_leader(leader=leader_drone)*0.1
+                #velo += self.get_leader(leader=leader_drone)*0.1
                 self.direction += velo#/np.linalg.norm(velo)
                 self.direction/=np.linalg.norm(self.direction)
             
@@ -134,6 +136,8 @@ class Drone:
             self.speed = min(self.speed + 0.01, self.max_speed)
         if ord('f') in keys and keys[ord('f')] & p.KEY_IS_DOWN:
             self.speed = max(self.speed - 0.01, 0.1)
+            self.stopper = True
+            
 
     def detect_collision_with_floor(self):
         if self.position[2] < 0.1:

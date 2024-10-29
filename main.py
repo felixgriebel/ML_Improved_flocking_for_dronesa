@@ -17,16 +17,16 @@ class Environment:
         self.client = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.resetDebugVisualizerCamera(cameraDistance=15, cameraYaw=0, cameraPitch=-30, cameraTargetPosition=[0, 0, 0])
-        p.setGravity(0, 0, -9.8)
+        p.setGravity(0, 0, 0)#-9.8
 
         self.plane_id = p.loadURDF("plane.urdf")
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 100
+        self.num_drones = 80
         self.drones = []
         for i in range(self.num_drones):
-            start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(10, 20)]
+            start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(5, 10)]
             # visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.1, rgbaColor=[0, 0, 1, 1])
             # collision_shape_id = p.createCollisionShape(shapeType=p.GEOM_SPHERE, radius=0.1)
             
@@ -49,8 +49,17 @@ class Environment:
         while True:
             p.stepSimulation()
             
+            
             leader_drone = self.drones[0]
 
+            if leader_drone.stopper:
+                p.resetDebugVisualizerCamera(cameraDistance=20,
+                                        cameraYaw=-90,
+                                        cameraPitch=0,
+                                        cameraTargetPosition=np.array([0.0,0.0,0.0]))
+                time.sleep(1/240)
+                continue
+            
             copy_drones = self.drones[:]
             if t% 0.1 == 0:
                 for drone in copy_drones:
@@ -78,7 +87,7 @@ class Environment:
                         i.make_leader_color()
                         break
 
-            border = 50
+            border = 30
             for i in self.drones:
                 pos = i.position
                 if pos[0]>border:
