@@ -18,7 +18,7 @@ class Environment:
         self.client = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.resetDebugVisualizerCamera(cameraDistance=15, cameraYaw=0, cameraPitch=-30, cameraTargetPosition=[0, 0, 0])
-        p.setGravity(0, 0, 0)#-9.8
+        p.setGravity(0, 0, -9.8)#-9.8
 
         self.plane_id = p.loadURDF("plane.urdf")
         
@@ -112,23 +112,14 @@ class Environment:
 
 
     def run(self):
-        # detection_radius = 5
-        # self.drone.visualize_detection_sphere(detection_radius)
 
-        t = 0
+        t = 0.0
         while True:
             p.stepSimulation()
             
             
             leader_drone = self.drones[0]
 
-            if leader_drone.stopper:
-                p.resetDebugVisualizerCamera(cameraDistance=20,
-                                        cameraYaw=-90,
-                                        cameraPitch=0,
-                                        cameraTargetPosition=np.array([0.0,0.0,0.0]))
-                time.sleep(1/240)
-                continue
             
             copy_drones = self.drones[:]
             if t% 0.1 == 0:
@@ -143,10 +134,6 @@ class Environment:
                     if drone.is_collided:
                         print("remove")
                         self.drones.remove(drone)
-                
-            # for drone in self.drones:
-            #     drone.update(self.drones, leader_drone)
-                
             
             
             if leader_drone.is_collided:
@@ -169,24 +156,6 @@ class Environment:
                 elif pos[1]< -border:
                     pos[1]+=(2*border)
                 i.position = pos
-            # # Detect nearby objects
-            # nearby_objects = self.drone.detect_nearby_objects(radius=detection_radius)
-            # if nearby_objects:
-            #     for obj_id, distance, vector in nearby_objects:
-            #         print(f"Object {obj_id} detected:")
-            #         print(f"  Distance: {distance:.2f}")
-            #         print(f"  Vector: [{vector[0]:.2f}, {vector[1]:.2f}, {vector[2]:.2f}]")
-            
-            # Move the drone forward
-            #self.drone.move_forward(0.01)
-            
-            # # Apply rolling motion
-            # roll_angle = math.sin(t) * 0.1  # Small rolling motion
-            # self.drone.roll(roll_angle)
-            
-            # # Apply yawing motion
-            # yaw_angle = math.cos(t) * 0.05  # Small yawing motion
-            # self.drone.yaw(yaw_angle)
 
             cam_target = leader_drone.position#.tolist()
             cam_distance = 8

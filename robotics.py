@@ -48,9 +48,9 @@ class Drone:
         self.centeringfactor = 0.005
         self.alignment_threshold = 10.0
         self.matchingfactor = 0.3
-        
-        self.stopper = False
 
+        self.obstacle_avoidance_radius = 5.0
+        
 
     def update(self, drones, leader_drone, skip = False):
         if self.is_collided:
@@ -60,7 +60,6 @@ class Drone:
             self.velocity = self.speed * self.direction
             
         else:
-            #pass
             if not skip:
                 tuptuper = self.get_closest_drones(drones)
                 velo = np.array([0.0,0.0,0.0])
@@ -70,7 +69,7 @@ class Drone:
                 velo += self.get_leader(leader=leader_drone)*0.01
                 self.direction += velo#/np.linalg.norm(velo)
                 self.direction/=np.linalg.norm(self.direction)
-            
+                self.calculate_avoidance_vector()
             
             self.velocity = self.speed * self.direction
 
@@ -78,18 +77,19 @@ class Drone:
             self.yaw = math.atan2(v_x, v_z)  # Yaw based on XZ plane
             self.pitch = math.atan2(v_y, math.sqrt(v_x**2 + v_z**2))  # Pitch based on vertical direction
 
-        # Update position
         self.position += self.velocity
-    
         orientation = p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
-        
-        # Update orientation
-        
         p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), orientation)
-
-        # Collision detection
-        self.detect_collision_with_floor()
-        self.detect_collision_with_drones(drones)
+        #Collision detection
+        coool = self.collision_detected(drones)
+        if coool == 1:
+            self.is_collided = True
+            self.velocity *= 0
+            self.direction *= 0
+        if coool == 2:
+            self.is_collided = True
+            self.velocity *= 0
+            self.direction *= 0
 
     def handle_input(self):
         keys = p.getKeyboardEvents()
@@ -111,19 +111,6 @@ class Drone:
         if DOWN_ARROW in keys and keys[DOWN_ARROW] & p.KEY_IS_DOWN:
             self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
 
-
-        # Yaw control (full 360 degrees)
-        # if ord('a') in keys and keys[ord('a')] & p.KEY_IS_DOWN:
-        #     self.yaw = (self.yaw + self.turn_rate) % (2 * math.pi)
-        # if ord('d') in keys and keys[ord('d')] & p.KEY_IS_DOWN:
-        #     self.yaw = (self.yaw - self.turn_rate) % (2 * math.pi)
-
-        # # Pitch control (full 360 degrees)
-        # if ord('s') in keys and keys[ord('s')] & p.KEY_IS_DOWN:
-        #     self.pitch = (self.pitch + self.turn_rate) % (2 * math.pi)
-        # if ord('w') in keys and keys[ord('w')] & p.KEY_IS_DOWN:
-        #     self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
-
         # Update direction based on yaw and pitch
         self.direction = np.array([
             -math.cos(self.pitch) * math.sin(self.yaw),
@@ -136,24 +123,7 @@ class Drone:
             self.speed = min(self.speed + 0.01, self.max_speed)
         if ord('f') in keys and keys[ord('f')] & p.KEY_IS_DOWN:
             self.speed = max(self.speed - 0.01, 0.1)
-            self.stopper = True
             
-
-    def detect_collision_with_floor(self):
-        if self.position[2] < 0.1:
-            self.is_collided = True
-            self.velocity *= 0
-            self.direction *= 0
-
-    def detect_collision_with_drones(self, drones):
-        for other in drones:
-            if other == self:
-                continue
-            distance = np.linalg.norm(other.position - self.position)
-            if distance < 0.1:
-                self.is_collided = True
-                self.velocity *= 0
-                self.direction *= 0
 
     def change_color(self, rgba_color):
         p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
@@ -195,6 +165,10 @@ class Drone:
         return distances
     
     
+
+
+
+    # ! BOID ALGO METHODS:-----------------------------------------------------------------------------------------------------------------------
 
     def get_seperation(self, tuplelist, neighbour_num = 10):
         vector_sum=np.array([0.0,0.0,0.0])
@@ -255,48 +229,84 @@ class Drone:
         return summe/(neighbour_num+1)
 
 
-    # def detect_nearby_objects(self, radius):
-    #     drone_pos, _ = p.getBasePositionAndOrientation(self.drone_id)
+
+
+
+
+    # ! Collision detection and avoidance:--------------------------------------------------------------------------------------------------------
+
+
+
+    def calculate_avoidance_vector(self):
+        """
+        Dynamically fetch obstacles from the environment and calculate a vector to avoid collisions.
         
-    #     aabb_min = [pos - radius for pos in drone_pos]
-    #     aabb_max = [pos + radius for pos in drone_pos]
+        Returns:
+        - avoidance_vector: A numpy array representing the avoidance direction.
+        """
+        # Initialize the avoidance vector
+        avoidance_vector = np.array([0.0, 0.0, 0.0])
+
+        # Get the drone's current position
+        drone_pos = self.position
+
+        # Check for obstacles within the radius
+        aabb_min = drone_pos - self.obstacle_avoidance_radius
+        aabb_max = drone_pos + self.obstacle_avoidance_radius
+
+        overlapping_objects = p.getOverlappingObjects(aabb_min.tolist(), aabb_max.tolist())
         
-    #     object_ids = p.getOverlappingObjects(aabb_min, aabb_max)
+        for obj_id, _ in overlapping_objects or []:
+            # Avoid self
+            if obj_id == self.drone_id:
+                continue
+
+            # Get obstacle position
+            obstacle_pos, _ = p.getBasePositionAndOrientation(obj_id)
+            obstacle_pos = np.array(obstacle_pos)
+
+            # Calculate distance and direction
+            distance = np.linalg.norm(drone_pos - obstacle_pos)
+            if distance < self.obstacle_avoidance_radius:
+                direction_away = drone_pos - obstacle_pos
+                avoidance_strength = (self.obstacle_avoidance_radius - distance) / self.obstacle_avoidance_radius
+                avoidance_vector += direction_away / np.linalg.norm(direction_away) * avoidance_strength
+
+        # Normalize the avoidance vector if it has magnitude
+        if np.linalg.norm(avoidance_vector) > 0:
+            avoidance_vector = avoidance_vector / np.linalg.norm(avoidance_vector)
+
+        return avoidance_vector
+
+
+
+
+    def collision_detected(self, drones):
+        #Returns:
+        #- 0: No collision
+        #- 1: Collision with the floor or fixed object
+        #- 2: Collision with another drone
         
-    #     nearby_objects = []
-    #     for obj_id, _ in object_ids:
-    #         if obj_id != self.drone_id:  # Exclude the drone itself
-    #             obj_pos, _ = p.getBasePositionAndOrientation(obj_id)
-    #             distance = np.linalg.norm(np.array(obj_pos) - np.array(drone_pos))
-                
-    #             if distance <= radius:
-    #                 vector = np.array(obj_pos) - np.array(drone_pos)
-    #                 nearby_objects.append((obj_id, distance, vector))
+        # Check collision with the floor
+        if self.position[2] < 0.1:
+            return 1  # Collision with the floor
 
-    #     return nearby_objects
+        # Check collision with fixed objects
+        aabb_min = self.position - 0.0005
+        aabb_max = self.position + 0.0005
+        overlapping_objects = p.getOverlappingObjects(aabb_min.tolist(), aabb_max.tolist())
 
-    # def get_position_and_orientation(self):
-    #     return p.getBasePositionAndOrientation(self.drone_id)
+        for obj_id, _ in overlapping_objects or []:
+            if obj_id != self.drone_id:  # Exclude the drone itself
+                return 1  # Collision with fixed object
 
-    # def set_position_and_orientation(self, position, orientation):
-    #     p.resetBasePositionAndOrientation(self.drone_id, position, orientation)
+        # Check collision with other drones
+        for other in drones:
+            if other == self:
+                continue
+            distance = np.linalg.norm(other.position - self.position)
+            if distance < 0.0005:  # Threshold for collision with another drone
+                return 2  # Collision with another drone
 
-    # def move_forward(self, distance):
-    #     pos, orn = self.get_position_and_orientation()
-    #     direction = p.getMatrixFromQuaternion(orn)[0:3]  # Extract forward vector
-    #     new_pos = [pos[i] + direction[i] * distance for i in range(3)]
-    #     self.set_position_and_orientation(new_pos, orn)
-
-    # def roll(self, angle):
-    #     pos, orn = self.get_position_and_orientation()
-    #     rotation = p.getQuaternionFromEuler([angle, 0, 0])
-    #     new_orn = p.multiplyQuaternions(orn, rotation)
-    #     self.set_position_and_orientation(pos, new_orn)
-
-    # def yaw(self, angle):
-    #     pos, orn = self.get_position_and_orientation()
-    #     rotation = p.getQuaternionFromEuler([0, 0, angle])
-    #     new_orn = p.multiplyQuaternions(orn, rotation)
-    #     self.set_position_and_orientation(pos, new_orn)
-
-
+        # No collision
+        return 0
