@@ -1,6 +1,7 @@
 import pybullet as p
 import numpy as np
 import math
+import leader_print as leader_bp
 
 class Drone:
     def __init__(self, client, start_position, is_leader=False):
@@ -32,6 +33,7 @@ class Drone:
 
         self.is_leader = is_leader
         self.is_collided = False
+        self.collision_reason = 0
         self.speed = 0.1  # Forward speed
         self.turn_rate = 0.01  # Radians per frame
         self.position = np.array(start_position)
@@ -40,21 +42,133 @@ class Drone:
         self.direction = np.array([1.0, 0.0, 0.0])  # Initial direction (normalized)
         self.velocity = np.array([1.0, 1.0, 0.0])
         self.max_speed = 0.7
+
         self.perception_radius = 5.0
 
-        self.seperation_threshold = 3.0
-        self.seperationfactor = 0.001
-        self.cohesion_threshold = 20.0
-        self.centeringfactor = 0.005
-        self.alignment_threshold = 10.0
-        self.matchingfactor = 0.3
+        self.seperation_threshold = self.perception_radius
+        self.seperationfactor = 0.1
+        self.cohesion_threshold = self.perception_radius
+        self.centeringfactor = 0.0005
+        self.alignment_threshold = self.perception_radius
+        self.matchingfactor = 0.01
 
-        self.obstacle_avoidance_radius = 5.0
+        self.obstacle_avoidance_radius = self.perception_radius
+        self.avoidancefactor = 0.2
+        self.followfactor = 0.2
+        self.leader_counter = 0
         
+    def handle_input(self):
+        act = leader_bp.meteorite[self.leader_counter]
+        if act == 4:
+            self.yaw = (self.yaw + self.turn_rate) % (2 * math.pi)
+        elif act == 2:
+            self.yaw = (self.yaw - self.turn_rate) % (2 * math.pi)
+        elif act == 1:
+            self.pitch = (self.pitch + self.turn_rate) % (2 * math.pi)
+        elif act == 3:
+            self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
+        if act == 7:
+            print("cc: ",self.leader_counter)
+        self.direction = np.array([
+            math.cos(self.pitch) * math.cos(self.yaw),
+            math.cos(self.pitch) * math.sin(self.yaw),
+            math.sin(self.pitch)
+        ])
+        self.leader_counter+=1
+    
+    # def handle_input(self):
+    #     keys = p.getKeyboardEvents()
+        
+    #     LEFT_ARROW = 65295
+    #     RIGHT_ARROW = 65296
+    #     UP_ARROW = 65297
+    #     DOWN_ARROW = 65298
+        
+    #     makenone = True
+
+    #     if LEFT_ARROW in keys and keys[LEFT_ARROW] & p.KEY_IS_DOWN:
+    #         self.yaw = (self.yaw + self.turn_rate) % (2 * math.pi)
+    #         print("4,", end =" ")
+    #         makenone = False
+    #     if RIGHT_ARROW in keys and keys[RIGHT_ARROW] & p.KEY_IS_DOWN:
+    #         self.yaw = (self.yaw - self.turn_rate) % (2 * math.pi)
+    #         print("2,", end =" ")
+    #         makenone = False
+
+    #     # Pitch control (full 360 degrees)
+    #     if UP_ARROW  in keys and keys[UP_ARROW] & p.KEY_IS_DOWN:
+    #         self.pitch = (self.pitch + self.turn_rate) % (2 * math.pi)
+    #         print("1,", end =" ")
+    #         makenone = False
+    #     if DOWN_ARROW in keys and keys[DOWN_ARROW] & p.KEY_IS_DOWN:
+    #         self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
+    #         print("3,", end =" ")
+    #         makenone = False
+    #     if makenone:
+    #         print("0,", end =" ")
+
+    #     # Update direction based on yaw and pitch
+    #     # self.direction = np.array([
+    #     #     -math.cos(self.pitch) * math.sin(self.yaw),
+    #     #     math.cos(self.pitch) * math.cos(self.yaw),
+    #     #     math.sin(self.pitch)
+    #     # ])
+    #     self.direction = np.array([
+    #         math.cos(self.pitch) * math.cos(self.yaw),
+    #         math.cos(self.pitch) * math.sin(self.yaw),
+    #         math.sin(self.pitch)
+    #     ])
+
+    #     # Speed control
+    #     if ord('r') in keys and keys[ord('r')] & p.KEY_IS_DOWN:
+    #         self.speed = min(self.speed + 0.01, self.max_speed)
+    #     if ord('f') in keys and keys[ord('f')] & p.KEY_IS_DOWN:
+    #         self.speed = max(self.speed - 0.01, 0.1)
+            
+
+    def change_color(self, rgba_color):
+        p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
+        
+    # ! depracated
+    # def make_leader_color(self):
+    #     self.drone_visual_shape = p.createVisualShape(
+    #         shapeType=p.GEOM_MESH,
+    #         fileName="triangle_reversed.obj",
+    #         rgbaColor=[0.7, 0.3, 0.3, 1],
+    #         meshScale=[1, 1, 1]
+    #     )
+        
+    #     self.drone_collision_shape = p.createCollisionShape(
+    #         shapeType=p.GEOM_MESH,
+    #         fileName="triangle_reversed.obj",
+    #         meshScale=[1, 1, 1]
+    #     )
+    #     self.drone_id = p.createMultiBody(
+    #         baseMass=10,
+    #         baseVisualShapeIndex=self.drone_visual_shape,
+    #         baseCollisionShapeIndex=self.drone_collision_shape,
+    #         basePosition=self.position,
+    #         baseOrientation=p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
+    #     )
+    #     self.change_color(rgba_color=[1, 0, 0, 1])
+
+    #! ==============================================================================
+
+
+
+
+
+
+
+
+
+
+
 
     def update(self, drones, leader_drone, skip = False):
         if self.is_collided:
             return
+        
         if self.is_leader:
             self.handle_input()
             self.velocity = self.speed * self.direction
@@ -63,13 +177,13 @@ class Drone:
             if not skip:
                 tuptuper = self.get_closest_drones(drones)
                 velo = np.array([0.0,0.0,0.0])
-                velo += self.get_alignment(tuptuper,drones=drones)
-                velo += self.get_cohesion(tuptuper)
-                velo += self.get_seperation(tuptuper)
-                velo += self.get_leader(leader=leader_drone)*0.01
-                self.direction += velo#/np.linalg.norm(velo)
+                velo += (self.get_alignment(tuptuper,drones=drones)*self.matchingfactor)
+                velo += (self.get_cohesion(tuptuper)*self.centeringfactor)
+                velo += (self.get_seperation(tuptuper)*self.seperationfactor)
+                velo += (self.get_leader(leader=leader_drone)*self.followfactor)
+                velo+= (self.calculate_avoidance_vector()*self.avoidancefactor)
+                self.direction += velo
                 self.direction/=np.linalg.norm(self.direction)
-                self.calculate_avoidance_vector()
             
             self.velocity = self.speed * self.direction
 
@@ -77,78 +191,29 @@ class Drone:
             self.yaw = math.atan2(v_x, v_z)  # Yaw based on XZ plane
             self.pitch = math.atan2(v_y, math.sqrt(v_x**2 + v_z**2))  # Pitch based on vertical direction
 
-        self.position += self.velocity
-        orientation = p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
-        p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), orientation)
-        #Collision detection
+
+        # * Collision detection
         coool = self.collision_detected(drones)
         if coool == 1:
             self.is_collided = True
+            self.collision_reason=1
             self.velocity *= 0
             self.direction *= 0
+            self.position = (-1.0,-1.0,-1.0)
+            p.removeBody(self.drone_id)
         if coool == 2:
             self.is_collided = True
+            self.collision_reason=2
             self.velocity *= 0
             self.direction *= 0
+            self.position = (-1.0,-1.0,-1.0)
+            p.removeBody(self.drone_id)
 
-    def handle_input(self):
-        keys = p.getKeyboardEvents()
-        
-        LEFT_ARROW = 65295
-        RIGHT_ARROW = 65296
-        UP_ARROW = 65297
-        DOWN_ARROW = 65298
-        
-        
-        if LEFT_ARROW in keys and keys[LEFT_ARROW] & p.KEY_IS_DOWN:
-            self.yaw = (self.yaw + self.turn_rate) % (2 * math.pi)
-        if RIGHT_ARROW in keys and keys[RIGHT_ARROW] & p.KEY_IS_DOWN:
-            self.yaw = (self.yaw - self.turn_rate) % (2 * math.pi)
 
-        # Pitch control (full 360 degrees)
-        if UP_ARROW  in keys and keys[UP_ARROW] & p.KEY_IS_DOWN:
-            self.pitch = (self.pitch + self.turn_rate) % (2 * math.pi)
-        if DOWN_ARROW in keys and keys[DOWN_ARROW] & p.KEY_IS_DOWN:
-            self.pitch = (self.pitch - self.turn_rate) % (2 * math.pi)
+        self.position += self.velocity
+        orientation = p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
+        p.resetBasePositionAndOrientation(self.drone_id, self.position.tolist(), orientation)
 
-        # Update direction based on yaw and pitch
-        self.direction = np.array([
-            -math.cos(self.pitch) * math.sin(self.yaw),
-            math.cos(self.pitch) * math.cos(self.yaw),
-            math.sin(self.pitch)
-        ])
-
-        # Speed control
-        if ord('r') in keys and keys[ord('r')] & p.KEY_IS_DOWN:
-            self.speed = min(self.speed + 0.01, self.max_speed)
-        if ord('f') in keys and keys[ord('f')] & p.KEY_IS_DOWN:
-            self.speed = max(self.speed - 0.01, 0.1)
-            
-
-    def change_color(self, rgba_color):
-        p.changeVisualShape(self.drone_id, -1, rgbaColor=rgba_color)
-        
-    def make_leader_color(self):
-        self.drone_visual_shape = p.createVisualShape(
-            shapeType=p.GEOM_MESH,
-            fileName="triangle_reversed.obj",
-            rgbaColor=[0.7, 0.3, 0.3, 1],
-            meshScale=[1, 1, 1]
-        )
-        
-        self.drone_collision_shape = p.createCollisionShape(
-            shapeType=p.GEOM_MESH,
-            fileName="triangle_reversed.obj",
-            meshScale=[1, 1, 1]
-        )
-        self.drone_id = p.createMultiBody(
-            baseMass=10,
-            baseVisualShapeIndex=self.drone_visual_shape,
-            baseCollisionShapeIndex=self.drone_collision_shape,
-            basePosition=self.position,
-            baseOrientation=p.getQuaternionFromEuler([self.pitch, 0, self.yaw])
-        )
-        self.change_color(rgba_color=[1, 0, 0, 1])
 
 
     def get_closest_drones(self, all_drones, num_closest=20):
@@ -178,7 +243,7 @@ class Drone:
                 break
             vector_sum+= (self.position - i[1])
         
-        vector_sum = vector_sum*self.seperationfactor
+        vector_sum = vector_sum
         return vector_sum
     
     def get_alignment(self, tuplelist, drones, neighbour_num = 10):
@@ -195,7 +260,7 @@ class Drone:
             return np.array([0.0,0.0,0.0])
         dir_sum = dir_sum/counter
 
-        dir_sum = (dir_sum-self.velocity)*self.matchingfactor
+        dir_sum = (dir_sum-self.velocity)
         return dir_sum
     
     def get_cohesion(self, tuplelist):
@@ -212,7 +277,7 @@ class Drone:
         if counter == 0:
             return np.array([0.0,0.0,0.0])
         vector_sum = vector_sum/counter
-        vector_sum = (vector_sum-self.position)*self.centeringfactor
+        vector_sum = (vector_sum-self.position)
 
         return vector_sum#/np.linalg.norm(vector_sum)
     
@@ -220,7 +285,7 @@ class Drone:
     def get_leader(self,leader):
         dist = np.linalg.norm(leader.position - self.position)
         vec = leader.position-self.position
-        return (vec)#/np.linalg.norm(vec))# * math.sqrt(math.sqrt(dist))
+        return (vec)/math.sqrt(math.sqrt(dist))#/np.linalg.norm(vec))# * math.sqrt(math.sqrt(dist))
 
     def avg_speed(self, tuplelist,leader,  neighbour_num = 10):
         summe = leader.speed
@@ -238,12 +303,6 @@ class Drone:
 
 
     def calculate_avoidance_vector(self):
-        """
-        Dynamically fetch obstacles from the environment and calculate a vector to avoid collisions.
-        
-        Returns:
-        - avoidance_vector: A numpy array representing the avoidance direction.
-        """
         # Initialize the avoidance vector
         avoidance_vector = np.array([0.0, 0.0, 0.0])
 
@@ -288,24 +347,26 @@ class Drone:
         #- 2: Collision with another drone
         
         # Check collision with the floor
-        if self.position[2] < 0.1:
+        if self.position[2] < 0.0001:
+            #print("id: ",obj_id)
             return 1  # Collision with the floor
 
         # Check collision with fixed objects
-        aabb_min = self.position - 0.0005
-        aabb_max = self.position + 0.0005
+        aabb_min = self.position - 0.0001
+        aabb_max = self.position + 0.0001
         overlapping_objects = p.getOverlappingObjects(aabb_min.tolist(), aabb_max.tolist())
+
 
         for obj_id, _ in overlapping_objects or []:
             if obj_id != self.drone_id:  # Exclude the drone itself
-                return 1  # Collision with fixed object
+                return 1
 
         # Check collision with other drones
         for other in drones:
             if other == self:
                 continue
             distance = np.linalg.norm(other.position - self.position)
-            if distance < 0.0005:  # Threshold for collision with another drone
+            if distance < 0.0001:  # Threshold for collision with another drone
                 return 2  # Collision with another drone
 
         # No collision

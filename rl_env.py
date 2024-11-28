@@ -1,10 +1,11 @@
-import gym
-from gym import spaces
+import  gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 import pybullet as p
 from robotics_orig import Drone
 from main_orig import Environment
 from stable_baselines3 import PPO
+
 class DroneGymEnv(gym.Env):
     def __init__(self, num_drones=30):
         super(DroneGymEnv, self).__init__()
@@ -25,47 +26,101 @@ class DroneGymEnv(gym.Env):
         # Initialize leader drone
         self.leader_drone = self.drones[0]
 
-    def reset(self):
+        self.collided_drones =[]
+
+    def reset(self, seed=None, options=None):
+        if seed is not None:
+            np.random.seed(seed)
+            self.env.seed(seed)
         # Reset PyBullet environment
         self.env.__init__()  # Reinitialize environment
         self.drones = self.env.drones[:self.num_drones]
         self.leader_drone = self.drones[0]
-        return self._get_observation()
+        obs = self._get_observation()
+        return obs, {}
+    
 
     def step(self, action):
         # Apply action: Update each drone's behavior factors
-        for drone, factor in zip(self.drones, action):
+        factor = action
+        for drone in self.drones:
+            if drone == self.leader_drone:
+                continue
+            if drone in self.collided_drones:
+                continue
             drone.matchingfactor = factor[0]  # Alignment
             drone.centeringfactor = factor[1]  # Centering
             drone.seperationfactor = factor[2]  # Separation
-            #TODO: add other factors and check if these ones are correct
-            # TODO: change perception radius
-            # Remaining factors affect leader-following and avoidance
-            # Add these interactions here if necessary for RL optimization.
+            drone.avoidancefactor = factor[3]
+            drone.followfactor = factor[4]
 
         # Step simulation
+        collisions_prev = self.collided_drones.copy()
         p.stepSimulation()
+        copy_drones = self.drones#[:]
+        for drone in copy_drones:
+            drone.update(copy_drones, self.leader_drone)
+            if drone.is_collided:
+                self.collided_drones.append(drone)
+
+        # Compute reward 
+        reward = 20.0  # Placeholder for a constant reward
+        collision_fact = 0
+        for i in self.collided_drones:
+            if i in collisions_prev:
+                continue
+            collision_fact+=i.collision_reason
+        reward -= (collision_fact*20.0)
+
+
         for drone in self.drones:
-            drone.update(self.drones, self.leader_drone)
+            if drone == self.leader_drone or drone in self.collided_drones:
+                continue
 
-        # Compute reward (constant for now)
-        reward = 1.0  # Placeholder for a constant reward
+            # Vector to leader
+            to_leader = self.leader_drone.position - drone.position
 
+            distance_to_leader = np.linalg.norm(to_leader)
+
+            reward+= (20.0-distance_to_leader)
+
+            # to_leader /= distance_to_leader  # Normalize
+
+            # # Compare direction vector
+            # direction = drone.direction
+            # cos_angle = np.dot(direction, to_leader)  # Cosine of the angle between vectors
+            # angle = np.arccos(np.clip(cos_angle, -1.0, 1.0))  # Convert to angle in radians
+            # angle_deg = np.degrees(angle)  # Convert to degrees
+
+            # # Add to reward based on angle to leader
+            # if angle_deg <= 45:
+            #     reward += 1.0
+            # elif angle_deg <= 90:
+            #     reward += 0.5
+            # elif angle_deg <= 135:
+            #     reward -= 0.5
+            # else:
+            #     reward -= 1.0
+        
+        
         # Check for termination (e.g., collision of leader drone)
-        done = self.leader_drone.is_collided
-
+        #! 12422 is the end of the leader blueprint
+        terminated = self.leader_drone.is_collided or (self.leader_drone.leader_counter>12422)
+        truncated = len(self.collided_drones) > (len(self.drones) / 2)
         # Get next state
         obs = self._get_observation()
         
-        return obs, reward, done, {}
+        return obs, reward, terminated, truncated, {}
 
     def _get_observation(self):
         obs = []
         for drone in self.drones:
+            #TODO: in theory exclude leader
             # State vector: drones in perception radius, average distance, etc.
             close_drones = drone.get_closest_drones(self.drones)
             num_drones = len(close_drones)
             avg_distance = np.mean([d[2] for d in close_drones]) if num_drones > 0 else 0
+            
             obstacle_count = len(p.getOverlappingObjects(
                 drone.position - drone.obstacle_avoidance_radius,
                 drone.position + drone.obstacle_avoidance_radius
@@ -91,14 +146,13 @@ class DroneGymEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    # env = Environment()
-    # env.run()      
     env = DroneGymEnv()
 
-    newModel = False
+    newModel = True
     if newModel:
-        model = PPO("MlpPolicy", env, verbose=1)
+        model = PPO("MlpPolicy", env, verbose=3,n_epochs=10)
     else:
-        model = PPO.load("MlpPolicy", env, )
-    model.learn(total_timesteps=5000)
+        model = PPO.load("drone_rl_model", device="cuda")
+
+    model.learn(total_timesteps=500)
     model.save("drone_rl_model")
