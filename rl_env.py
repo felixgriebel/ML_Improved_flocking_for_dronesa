@@ -108,8 +108,7 @@ class DroneGymEnv(gym.Env):
         terminated = self.leader_drone.is_collided or (self.leader_drone.leader_counter>12422)
         truncated = len(self.collided_drones) > (len(self.drones) / 2)
         # Get next state
-        obs = self._get_observation()
-        
+        obs = self._get_observation()        
         return obs, reward, terminated, truncated, {}
 
     def _get_observation(self):
@@ -150,9 +149,9 @@ if __name__ == "__main__":
 
     newModel = True
     if newModel:
-        model = PPO("MlpPolicy", env, verbose=3,n_epochs=10)
+        model = PPO("MlpPolicy", env,n_steps=700, verbose=1,n_epochs=50,batch_size=50)
     else:
-        model = PPO.load("drone_rl_model", device="cuda")
+        model = PPO.load("drone_rl_model")
 
-    model.learn(total_timesteps=500)
+    model.learn(total_timesteps=700)
     model.save("drone_rl_model")

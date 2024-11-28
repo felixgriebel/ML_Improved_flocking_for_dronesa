@@ -1,7 +1,7 @@
 mtllib plane_materials.mtl
 
 # Vertices
-v -0.5 0.0 0.0  # Tip of the cone (rotated)
+v 0.5 0.0 0.0  # Tip of the cone (rotated)
 
 # Base vertices (approximating a circle with 16 points)
 v 0.0 0.0 0.1

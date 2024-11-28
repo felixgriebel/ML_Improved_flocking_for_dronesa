@@ -5,6 +5,7 @@ import time
 import math
 from robotics_orig import Drone
 import datetime 
+import visualize_tests as vt
 
 
 #TODO: ändern zu nur im gewissen bereich sind die nahen boids
@@ -15,11 +16,11 @@ import datetime
 
 
 class Environment:
-    def __init__(self):
+    def __init__(self, numdro = 30):
         self.seed = 42
         np.random.seed(42)
 
-        self.client = p.connect(p.DIRECT)
+        self.client = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.resetDebugVisualizerCamera(cameraDistance=15, cameraYaw=0, cameraPitch=-30, cameraTargetPosition=[0, 0, 0])
         p.setGravity(0, 0, -9.8)#-9.8
@@ -28,7 +29,7 @@ class Environment:
         
         #self.drone = Drone(self.client)
         
-        self.num_drones = 30
+        self.num_drones = numdro
         self.drones = []
         for i in range(self.num_drones):
             start_pos = [np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(5, 10)]
@@ -348,43 +349,100 @@ class Environment:
 
 # ! not important -------------------------------------------------------------------------------------
     def run(self):
+        leader_drone = self.drones[0]
 
-        t = 0.0
-        while True:
+        cnt = 0
+        max_steps = 12423
+        living_drones = []
+        comp_time = []
+
+        # frozen = False
+        # camera_target = [0, 0, 0]
+        # camera_distance = 30.0
+
+        while cnt <max_steps:
+
+            # keys = p.getKeyboardEvents()
+            # if 106 in keys and keys[106] & p.KEY_IS_DOWN:
+            #     frozen= True
+            #     all_body_ids = [p.getBodyUniqueId(i) for i in range(p.getNumBodies())]
+
+            #     # Get the IDs of the drones
+            #     drone_ids = [drone.drone_id for drone in self.drones]
+
+            #     # Remove objects that are not drones
+            #     for body_id in all_body_ids:
+            #         if body_id not in drone_ids:
+            #             p.removeBody(body_id)
+            # if 107 in keys and keys[107] & p.KEY_IS_DOWN:
+            #     frozen= False
+            # if 49 in keys and keys[49] & p.KEY_IS_DOWN:
+            #     p.resetDebugVisualizerCamera(
+            #         cameraDistance=camera_distance,
+            #         cameraYaw=0,
+            #         cameraPitch=0,
+            #         cameraTargetPosition=camera_target
+            #     )
+            # # Check if the '2' key is pressed
+            # if 50 in keys and keys[50] & p.KEY_IS_DOWN:
+            #     p.resetDebugVisualizerCamera(
+            #         cameraDistance=camera_distance,
+            #         cameraYaw=90,
+            #         cameraPitch=0,
+            #         cameraTargetPosition=camera_target
+            #     )
+            # # Check if the '3' key is pressed
+            # if 51 in keys and keys[51] & p.KEY_IS_DOWN:
+            #     p.resetDebugVisualizerCamera(
+            #             cameraDistance=camera_distance,
+            #             cameraYaw=0,
+            #             cameraPitch=-98.99,
+            #             cameraTargetPosition=camera_target
+            #         )
+            # if frozen:
+            #     continue
+
+            cnt += 1
+            
+            # ! for test completeness we continue the test
+            if leader_drone.is_collided:
+                living_drones.append(-1)
+                comp_time.append(-1.0)
+                continue
+
             p.stepSimulation()
             
             
-            leader_drone = self.drones[0]
             
-            copy_drones = self.drones#[:]
-            if t% 0.1 == 0:
-                for drone in copy_drones:
-                    drone.update(copy_drones, leader_drone)
-                    if drone.is_collided:
-                        #print("remove")
-                        self.drones.remove(drone)
-            else:
-                for drone in copy_drones:
-                    drone.update(copy_drones, leader_drone,skip=True)
-                    if drone.is_collided:
-                        #print("remove")
-                        self.drones.remove(drone)
-            
-            
-            if leader_drone.is_collided:
-                return
-                #continue
-                for i in self.drones:
-                    if not i.is_collided:
-                        leader_drone = i
-                        i.is_leader = True
-                        i.make_leader_color()
-                        break
 
+            timetaken =0.0
+            timediv = len(self.drones)
+
+            copy_drones = self.drones#[:]
+            for drone in copy_drones:
+                start_time =time.perf_counter()
+                drone.update(copy_drones, leader_drone)
+                end_time =time.perf_counter()
+                timetaken +=((end_time - start_time) * 1000)
+
+                if drone.is_collided:
+                    self.drones.remove(drone)
+            
+            comp_time.append((timetaken/timediv))
+            living_drones.append(len(self.drones))
+            # * end when the leader is dead
+            # if leader_drone.is_collided:
+            #     return
+                # for i in self.drones:
+                #     if not i.is_collided:
+                #         leader_drone = i
+                #         i.is_leader = True
+                #         i.make_leader_color()
+                #         break
+
+            # * Camera stuff
             cam_target = leader_drone.position
             cam_distance = 5
-
-            # Adjust camera yaw to be behind the leader drone
             cam_pitch = np.degrees(leader_drone.pitch)
             cam_yaw_offset = -90  # Offset to ensure the camera looks at the back of the drone
             cam_yaw = np.degrees(leader_drone.yaw) + cam_yaw_offset
@@ -393,13 +451,13 @@ class Environment:
                                         cameraPitch=cam_pitch,
                                         cameraTargetPosition=cam_target)
             
-            t += 0.01
-            time.sleep(1/240)
-    
+            #time.sleep(1/240)
+        # vt.plot_columns_adjacent_no_space(30,living_drones)
+        # vt.plot_time_series_with_avg(comp_time)    
 
-# if __name__ == "__main__":
-#     env = Environment()
-#     env.run()
+if __name__ == "__main__":
+    env = Environment()
+    ser_1 =env.run()
 
 
 

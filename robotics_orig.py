@@ -187,10 +187,10 @@ class Drone:
             
             self.velocity = self.speed * self.direction
 
-            v_x, v_z, v_y = self.direction
-            self.yaw = math.atan2(v_x, v_z)  # Yaw based on XZ plane
+            v_x, v_y, v_z = self.direction
+            self.yaw = math.atan2(v_z, v_x)  # Yaw based on XZ plane
             self.pitch = math.atan2(v_y, math.sqrt(v_x**2 + v_z**2))  # Pitch based on vertical direction
-
+            
 
         # * Collision detection
         coool = self.collision_detected(drones)
