@@ -6,7 +6,7 @@ import math
 from robotics_orig import Drone
 import datetime 
 import visualize_tests as vt
-
+from stable_baselines3 import PPO
 
 #TODO: ändern zu nur im gewissen bereich sind die nahen boids
 #TODO: andern zu leader immer enthalten
@@ -20,7 +20,7 @@ class Environment:
         self.seed = 42
         np.random.seed(42)
 
-        self.client = p.connect(p.GUI)
+        self.client = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.resetDebugVisualizerCamera(cameraDistance=15, cameraYaw=0, cameraPitch=-30, cameraTargetPosition=[0, 0, 0])
         p.setGravity(0, 0, -9.8)#-9.8
@@ -356,12 +356,25 @@ class Environment:
         living_drones = []
         comp_time = []
 
+
+        # * pred funct
+        # model = PPO.load("./models/drone_rl_model_500_20epoch")  # Ensure the path is correct
+
+
+
+
+        # * freeze funct
         # frozen = False
         # camera_target = [0, 0, 0]
         # camera_distance = 30.0
 
         while cnt <max_steps:
 
+
+
+
+
+            # * freeze funct
             # keys = p.getKeyboardEvents()
             # if 106 in keys and keys[106] & p.KEY_IS_DOWN:
             #     frozen= True
@@ -412,7 +425,40 @@ class Environment:
 
             p.stepSimulation()
             
-            
+            # * pred functi
+            # obs = []
+            # for drone in self.drones:
+            #     # Calculate observation for this drone
+            #     close_drones = drone.get_closest_drones(self.drones)
+            #     num_drones = len(close_drones)
+            #     avg_distance = np.mean([d[2] for d in close_drones]) if num_drones > 0 else 0
+
+            #     obstacle_count = len(p.getOverlappingObjects(
+            #         drone.position - drone.obstacle_avoidance_radius,
+            #         drone.position + drone.obstacle_avoidance_radius
+            #     ) or [])
+            #     avg_obstacle_distance = np.mean([
+            #         np.linalg.norm(np.array(p.getBasePositionAndOrientation(o[0])[0]) - drone.position)
+            #         for o in p.getOverlappingObjects(
+            #             drone.position - drone.obstacle_avoidance_radius,
+            #             drone.position + drone.obstacle_avoidance_radius
+            #         ) or []
+            #     ]) if obstacle_count > 0 else 0
+
+            #     leader_distance = np.linalg.norm(drone.position - leader_drone.position)
+            #     obs.append([num_drones, avg_distance, obstacle_count, avg_obstacle_distance, leader_distance])
+            # obs = np.array(obs)
+            # # Predict actions using the model
+            # actions, _ = model.predict(obs, deterministic=True)
+            # # Apply actions to drones (e.g., update behavior factors)
+            # for drone in self.drones:
+            #     if drone.is_leader or drone.is_collided:
+            #         continue
+            #     drone.matchingfactor = actions[0]
+            #     drone.centeringfactor = actions[1]
+            #     drone.seperationfactor = actions[2]
+            #     drone.avoidancefactor = actions[3]
+            #     drone.followfactor = actions[4]
             
 
             timetaken =0.0
@@ -455,9 +501,9 @@ class Environment:
         # vt.plot_columns_adjacent_no_space(30,living_drones)
         # vt.plot_time_series_with_avg(comp_time)    
 
-if __name__ == "__main__":
-    env = Environment()
-    ser_1 =env.run()
+# if __name__ == "__main__":
+#     env = Environment()
+#     ser_1 =env.run()
 
 
 

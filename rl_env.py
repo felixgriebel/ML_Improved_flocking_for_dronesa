@@ -149,9 +149,9 @@ if __name__ == "__main__":
 
     newModel = True
     if newModel:
-        model = PPO("MlpPolicy", env,n_steps=700, verbose=1,n_epochs=50,batch_size=50)
+        model = PPO("MlpPolicy", env,n_steps=1000, verbose=1,n_epochs=50,batch_size=50)
     else:
         model = PPO.load("drone_rl_model")
 
-    model.learn(total_timesteps=700)
-    model.save("drone_rl_model")
+    model.learn(total_timesteps=1000)
+    model.save("drone_rl_model_1000_50epoch")
