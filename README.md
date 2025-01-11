@@ -1,5 +1,9 @@
 # README
 
+Fore more detailled info read : [Project Report](./REPORT_PAPER/Robots_project_report.pdf)
+
+
+
 ### Abstract
 
 This project explores the development of a leader-based flocking algorithm for coordinating a robotic swarm in three-dimensional space. Inspired by biological behaviors, such as flocking in birds, the Boids algorithm was adapted to include reinforcement learning (RL) techniques for enhancing swarm adaptability and efficiency. The research aimed to address challenges such as dynamic obstacle avoidance and effective leader-following in constrained environments.
@@ -11,7 +15,7 @@ The results highlight the potential of combining traditional algorithms with mac
 
 
 
-For more information read the included report paper
+
 
 
 
